@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Proyecto Reencuentro — Personas Desaparecidas</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e8e8e8; min-height: 100vh; }
+
+    header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      padding: 2rem 1rem; text-align: center;
+      border-bottom: 3px solid #e94560;
+    }
+    header h1 { font-size: 2rem; color: #fff; letter-spacing: 2px; text-transform: uppercase; }
+    header p { color: #a0aec0; margin-top: 0.5rem; font-size: 0.95rem; }
+
+    .alerta {
+      background: #e94560; color: #fff; text-align: center;
+      padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 600; letter-spacing: 1px;
+    }
+
+    .controles {
+      max-width: 960px; margin: 1.5rem auto; padding: 0 1rem;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;
+    }
+    .controles input, .controles select {
+      padding: 0.7rem 1rem; border-radius: 8px;
+      border: 1px solid #2d3748; background: #1a202c;
+      color: #e8e8e8; font-size: 0.95rem; width: 100%;
+    }
+    .controles input::placeholder { color: #718096; }
+    .busqueda-nota {
+      max-width: 960px; margin: -0.5rem auto 0.5rem;
+      padding: 0 1rem; font-size: 0.75rem; color: #718096;
+    }
+
+    #contador { max-width: 960px; margin: 0 auto 1rem; padding: 0 1rem; color: #718096; font-size: 0.85rem; }
+
+    .grid {
+      max-width: 960px; margin: 0 auto 3rem; padding: 0 1rem;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.2rem;
+    }
+
+    .tarjeta {
+      background: #1a202c; border-radius: 12px; overflow: hidden;
+      border: 1px solid #2d3748; transition: transform 0.2s, border-color 0.2s;
+    }
+    .tarjeta:hover { transform: translateY(-4px); border-color: #e94560; }
+
+    .foto-wrap {
+      width: 100%; height: 210px; background: #2d3748;
+      display: flex; align-items: center; justify-content: center; overflow: hidden;
+    }
+    .foto-wrap img { width: 100%; height: 100%; object-fit: cover; }
+    .sin-foto { font-size: 3.5rem; color: #4a5568; }
+
+    .tarjeta-body { padding: 1rem; }
+    .tarjeta-body h2 { font-size: 1.05rem; color: #fff; margin-bottom: 0.5rem; line-height: 1.3; }
+    .detalle { font-size: 0.82rem; color: #a0aec0; margin-bottom: 0.3rem; display: flex; align-items: flex-start; gap: 0.4rem; }
+    .detalle span:first-child { font-size: 0.9rem; flex-shrink: 0; }
+
+    .badge {
+      display: inline-block; margin-top: 0.7rem;
+      padding: 0.25rem 0.7rem; border-radius: 20px;
+      font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .badge-reportado    { background: #744210; color: #fbd38d; }
+    .badge-verificacion { background: #1a365d; color: #90cdf4; }
+    .badge-localizado   { background: #1c4532; color: #9ae6b4; }
+    .badge-cerrado      { background: #1a202c; color: #718096; border: 1px solid #4a5568; }
+
+    .id-caso { font-size: 0.7rem; color: #4a5568; margin-top: 0.5rem; }
+
+    #cargando { text-align: center; padding: 4rem; color: #718096; font-size: 1rem; }
+    #sin-resultados { text-align: center; padding: 3rem; color: #718096; display: none; }
+    #error-msg { text-align: center; padding: 2rem; color: #fc8181; display: none; font-size: 0.9rem; }
+
+    footer { text-align: center; padding: 2rem; color: #4a5568; font-size: 0.8rem; border-top: 1px solid #2d3748; }
+
+    @media (max-width: 560px) {
+      header h1 { font-size: 1.4rem; }
+      .controles { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="alerta">🚨 EMERGENCIA — Terremoto Venezuela — Ayúdanos a compartir</div>
+
+<header>
+  <h1>🔍 Proyecto Reencuentro</h1>
+  <p>Registro de personas desaparecidas · Reporta o busca un caso</p>
+  <p style="margin-top:0.8rem;">
+    <a href="https://forms.gle/CbqgTxuQDn58g3cy8" target="_blank"
+       style="background:#e94560;color:#fff;padding:0.5rem 1.4rem;border-radius:6px;text-decoration:none;font-weight:700;font-size:0.9rem;">
+      + Reportar persona desaparecida
+    </a>
+  </p>
+</header>
+
+<div class="controles">
+  <input type="text" id="buscarNombre" placeholder="🔎 Buscar por nombre...">
+  <input type="text" id="buscarCedula" placeholder="🪪 Buscar por cédula...">
+  <select id="filtroEstado">
+    <option value="">Todos los estados</option>
+    <option value="Reportado">Reportado</option>
+    <option value="En verificación">En verificación</option>
+    <option value="Posible localizado">Posible localizado</option>
+  </select>
+  <select id="filtroCiudad">
+    <option value="">Todas las ciudades</option>
+  </select>
+</div>
+<p class="busqueda-nota">* La búsqueda por cédula es privada — el número no se muestra en la tarjeta pública.</p>
+
+<div id="contador"></div>
+<div id="cargando">⏳ Cargando casos...</div>
+<div id="error-msg">⚠️ Error al cargar los datos. Si el problema persiste, verifica que el Sheet esté publicado como CSV.</div>
+<div id="sin-resultados">😔 No se encontraron casos con esos filtros.</div>
+<div class="grid" id="grid"></div>
+
+<footer>
+  Proyecto Reencuentro · Datos actualizados automáticamente · Para emergencias contacta a los moderadores
+</footer>
+
+<script>
+  const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRmEleHEMuVSzlfa2qItMepGi_ojWfzKFn6Z6QNUNBMrjXr-T3j2IYiHjszx3KdAa1X3wAkR7H8tZui/pub?gid=332903963&single=true&output=csv';
+
+  const COL_NOMBRE    = 2;
+  const COL_CEDULA    = 3;
+  const COL_CIUDAD    = 5;
+  const COL_UBICACION = 6;
+  const COL_NOMBRE_R  = 9;
+  const COL_FOTO      = 13;
+  const COL_ESTADO    = 15;
+  const COL_ID        = 16;
+
+  let todosLosCasos = [];
+
+  function driveUrl(url) {
+    if (!url) return '';
+    const match = url.match(/[-\w]{25,}/);
+    return match ? 'https://drive.google.com/uc?export=view&id=' + match[0] : url;
+  }
+
+  function badgeClass(estado) {
+    if (!estado || estado === 'Reportado')      return 'badge-reportado';
+    if (estado === 'En verificación')            return 'badge-verificacion';
+    if (estado === 'Posible localizado')         return 'badge-localizado';
+    if (estado === 'Cerrado verificado')         return 'badge-cerrado';
+    return 'badge-reportado';
+  }
+
+  function parseCSV(text) {
+    const lines = text.trim().split('\n');
+    return lines.slice(1).map(line => {
+      const cols = [];
+      let actual = '', dentroComillas = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"') { dentroComillas = !dentroComillas; }
+        else if (c === ',' && !dentroComillas) { cols.push(actual.trim()); actual = ''; }
+        else { actual += c; }
+      }
+      cols.push(actual.trim());
+      return cols;
+    });
+  }
+
+  function renderTarjeta(caso) {
+    const nombre    = caso[COL_NOMBRE]    || 'Sin nombre';
+    const ciudad    = caso[COL_CIUDAD]    || '';
+    const ubicacion = caso[COL_UBICACION] || '';
+    const reportante= caso[COL_NOMBRE_R]  || '';
+    const foto      = driveUrl(caso[COL_FOTO] || '');
+    const estado    = caso[COL_ESTADO]    || 'Reportado';
+    const id        = caso[COL_ID]        || '';
+    const cedula    = caso[COL_CEDULA]    || '';
+
+    const fotoHTML = foto
+      ? `<img src="${foto}" alt="Foto de ${nombre}" onerror="this.parentElement.innerHTML='<span class=\"sin-foto\">👤</span>'">`
+      : '<span class="sin-foto">👤</span>';
+
+    return `
+      <div class="tarjeta"
+           data-nombre="${nombre.toLowerCase()}"
+           data-cedula="${cedula.toString().toLowerCase()}"
+           data-ciudad="${ciudad.toLowerCase()}"
+           data-estado="${estado}">
+        <div class="foto-wrap">${fotoHTML}</div>
+        <div class="tarjeta-body">
+          <h2>${nombre}</h2>
+          ${ciudad     ? `<div class="detalle"><span>📍</span><span>${ciudad}</span></div>` : ''}
+          ${ubicacion  ? `<div class="detalle"><span>🗺️</span><span>${ubicacion}</span></div>` : ''}
+          ${reportante ? `<div class="detalle"><span>👤</span><span>Reportado por: ${reportante}</span></div>` : ''}
+          <span class="badge ${badgeClass(estado)}">${estado}</span>
+          ${id ? `<div class="id-caso">${id}</div>` : ''}
+        </div>
+      </div>`;
+  }
+
+  function poblarFiltroCiudad(casos) {
+    const ciudades = [...new Set(casos.map(c => c[COL_CIUDAD]).filter(Boolean))].sort();
+    const sel = document.getElementById('filtroCiudad');
+    ciudades.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.toLowerCase(); opt.textContent = c;
+      sel.appendChild(opt);
+    });
+  }
+
+  function filtrar() {
+    const txtNombre = document.getElementById('buscarNombre').value.toLowerCase().trim();
+    const txtCedula = document.getElementById('buscarCedula').value.toLowerCase().trim();
+    const estado    = document.getElementById('filtroEstado').value;
+    const ciudad    = document.getElementById('filtroCiudad').value;
+
+    const tarjetas = document.querySelectorAll('.tarjeta');
+    let visibles = 0;
+
+    tarjetas.forEach(t => {
+      const okNombre = !txtNombre || t.dataset.nombre.includes(txtNombre);
+      const okCedula = !txtCedula || t.dataset.cedula.includes(txtCedula);
+      const okEstado = !estado   || t.dataset.estado === estado;
+      const okCiudad = !ciudad   || t.dataset.ciudad === ciudad;
+      const visible  = okNombre && okCedula && okEstado && okCiudad;
+      t.style.display = visible ? '' : 'none';
+      if (visible) visibles++;
+    });
+
+    document.getElementById('contador').textContent = visibles + ' caso(s) encontrado(s)';
+    document.getElementById('sin-resultados').style.display = visibles === 0 ? 'block' : 'none';
+  }
+
+  async function cargar() {
+    try {
+      const resp = await fetch(CSV_URL + '&t=' + Date.now());
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const text = await resp.text();
+      if (!text || text.trim().length < 10) throw new Error('CSV vacío');
+
+      todosLosCasos = parseCSV(text).filter(c => c[COL_ID] && c[COL_ID].toString().trim() !== '');
+      const activos = todosLosCasos.filter(c => c[COL_ESTADO] !== 'Cerrado verificado');
+
+      document.getElementById('cargando').style.display = 'none';
+      document.getElementById('error-msg').style.display = 'none';
+
+      const grid = document.getElementById('grid');
+      if (activos.length === 0) {
+        grid.innerHTML = '';
+        document.getElementById('contador').textContent = 'No hay casos activos aún.';
+        return;
+      }
+
+      poblarFiltroCiudad(activos);
+      grid.innerHTML = activos.map(renderTarjeta).join('');
+      document.getElementById('contador').textContent = activos.length + ' caso(s) activo(s)';
+
+      document.getElementById('buscarNombre').addEventListener('input', filtrar);
+      document.getElementById('buscarCedula').addEventListener('input', filtrar);
+      document.getElementById('filtroEstado').addEventListener('change', filtrar);
+      document.getElementById('filtroCiudad').addEventListener('change', filtrar);
+
+    } catch (err) {
+      console.error('Error cargando CSV:', err);
+      document.getElementById('cargando').style.display = 'none';
+      document.getElementById('error-msg').style.display = 'block';
+    }
+  }
+
+  cargar();
+  setInterval(cargar, 300000);
+</script>
+</body>
+</html>
