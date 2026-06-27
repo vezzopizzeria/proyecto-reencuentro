@@ -16,9 +16,14 @@
     .controles input::placeholder { color: #718096; }
     .busqueda-nota { max-width: 960px; margin: -0.5rem auto 0.5rem; padding: 0 1rem; font-size: 0.75rem; color: #718096; }
     #contador { max-width: 960px; margin: 0 auto 1rem; padding: 0 1rem; color: #718096; font-size: 0.85rem; }
+    .tabs { max-width: 960px; margin: 0 auto 1.5rem; padding: 0 1rem; display: flex; gap: 0.6rem; }
+    .tab { padding: 0.5rem 1.4rem; border-radius: 6px; border: 1px solid #2d3748; background: #1a202c; color: #a0aec0; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .tab.activo { background: #e94560; border-color: #e94560; color: #fff; }
+    .tab-hallados.activo { background: #d69e2e; border-color: #d69e2e; color: #1a202c; }
     .grid { max-width: 960px; margin: 0 auto 3rem; padding: 0 1rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.2rem; }
     .tarjeta { background: #1a202c; border-radius: 12px; overflow: hidden; border: 1px solid #2d3748; transition: transform 0.2s, border-color 0.2s; }
     .tarjeta:hover { transform: translateY(-4px); border-color: #e94560; }
+    .tarjeta.hallado:hover { border-color: #d69e2e; }
     .foto-wrap { width: 100%; height: 210px; background: #2d3748; display: flex; align-items: center; justify-content: center; overflow: hidden; }
     .foto-wrap img { width: 100%; height: 100%; object-fit: cover; }
     .sin-foto { font-size: 3.5rem; color: #4a5568; }
@@ -31,6 +36,7 @@
     .badge-verificacion { background: #1a365d; color: #90cdf4; }
     .badge-localizado   { background: #1c4532; color: #9ae6b4; }
     .badge-cerrado      { background: #1a202c; color: #718096; border: 1px solid #4a5568; }
+    .badge-hallado      { background: #744210; color: #f6e05e; border: 1px solid #d69e2e; }
     .id-caso { font-size: 0.7rem; color: #4a5568; margin-top: 0.5rem; }
     #cargando { text-align: center; padding: 4rem; color: #718096; font-size: 1rem; }
     #sin-resultados { text-align: center; padding: 3rem; color: #718096; display: none; }
@@ -69,6 +75,11 @@
 </div>
 <p class="busqueda-nota">* La búsqueda por cédula es privada — el número no se muestra en la tarjeta pública.</p>
 
+<div class="tabs">
+  <button class="tab activo" id="tab-desaparecidos" onclick="cambiarTab('desaparecidos')">🔴 Desaparecidos</button>
+  <button class="tab tab-hallados" id="tab-hallados" onclick="cambiarTab('hallados')">🟡 Hallados</button>
+</div>
+
 <div id="contador"></div>
 <div id="cargando">⏳ Cargando casos...</div>
 <div id="error-msg">⚠️ Error al cargar los datos. Verifica que el Sheet esté publicado como CSV.</div>
@@ -80,8 +91,10 @@
 </footer>
 
 <script>
-  const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRmEleHEMuVSzlfa2qItMepGi_ojWfzKFn6Z6QNUNBMrjXr-T3j2IYiHjszx3KdAa1X3wAkR7H8tZui/pub?gid=332903963&single=true&output=csv';
+  const CSV_DESAPARECIDOS = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRmEleHEMuVSzlfa2qItMepGi_ojWfzKFn6Z6QNUNBMrjXr-T3j2IYiHjszx3KdAa1X3wAkR7H8tZui/pub?gid=332903963&single=true&output=csv';
+  const CSV_HALLADOS      = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRmEleHEMuVSzlfa2qItMepGi_ojWfzKFn6Z6QNUNBMrjXr-T3j2IYiHjszx3KdAa1X3wAkR7H8tZui/pub?gid=264650718&single=true&output=csv';
 
+  // Columnas desaparecidos
   const COL_NOMBRE    = 2;
   const COL_CEDULA    = 3;
   const COL_CIUDAD    = 5;
@@ -92,7 +105,15 @@
   const COL_ESTADO    = 15;
   const COL_ID        = 16;
 
-  let todosLosCasos = [];
+  // Columnas hallados (índice desde 0)
+  const H_NOMBRE    = 1;
+  const H_CEDULA    = 2;
+  const H_DONDE     = 3;
+  const H_CONTACTO  = 4;
+  const H_OBS       = 5;
+  const H_FOTO      = 6;
+
+  let tabActual = 'desaparecidos';
   let eventosRegistrados = false;
 
   function driveUrl(url) {
@@ -102,10 +123,11 @@
   }
 
   function badgeClass(estado) {
-    if (!estado || estado === 'Reportado')    return 'badge-reportado';
-    if (estado === 'En verificación')          return 'badge-verificacion';
-    if (estado === 'Posible localizado')       return 'badge-localizado';
-    if (estado === 'Cerrado verificado')       return 'badge-cerrado';
+    if (!estado || estado === 'Reportado')  return 'badge-reportado';
+    if (estado === 'En verificación')        return 'badge-verificacion';
+    if (estado === 'Posible localizado')     return 'badge-localizado';
+    if (estado === 'Cerrado verificado')     return 'badge-cerrado';
+    if (estado === 'Hallado')                return 'badge-hallado';
     return 'badge-reportado';
   }
 
@@ -125,7 +147,7 @@
     });
   }
 
-  function renderTarjeta(caso) {
+  function renderDesaparecido(caso) {
     const nombre     = caso[COL_NOMBRE]    || 'Sin nombre';
     const ciudad     = caso[COL_CIUDAD]    || '';
     const ubicacion  = caso[COL_UBICACION] || '';
@@ -137,7 +159,7 @@
     const cedula     = caso[COL_CEDULA]    || '';
 
     const fotoHTML = foto
-      ? `<img src="${foto}" alt="Foto de ${nombre}" onerror="this.parentElement.innerHTML='<span class=\"sin-foto\">👤</span>'">`
+      ? `<img src="${foto}" alt="Foto de ${nombre}" onerror="this.parentElement.innerHTML='<span class=\\"sin-foto\\">👤</span>'">`
       : '<span class="sin-foto">👤</span>';
 
     return `
@@ -155,6 +177,35 @@
           ${obs        ? `<div class="detalle"><span>📝</span><span>${obs}</span></div>` : ''}
           <span class="badge ${badgeClass(estado)}">${estado}</span>
           ${id ? `<div class="id-caso">${id}</div>` : ''}
+        </div>
+      </div>`;
+  }
+
+  function renderHallado(caso) {
+    const nombre    = caso[H_NOMBRE]   || 'Sin nombre';
+    const donde     = caso[H_DONDE]    || '';
+    const contacto  = caso[H_CONTACTO] || '';
+    const obs       = caso[H_OBS]      || '';
+    const foto      = driveUrl(caso[H_FOTO] || '');
+    const cedula    = caso[H_CEDULA]   || '';
+
+    const fotoHTML = foto
+      ? `<img src="${foto}" alt="Foto de ${nombre}" onerror="this.parentElement.innerHTML='<span class=\\"sin-foto\\">👤</span>'">`
+      : '<span class="sin-foto">👤</span>';
+
+    return `
+      <div class="tarjeta hallado"
+           data-nombre="${nombre.toLowerCase()}"
+           data-cedula="${cedula.toString().toLowerCase()}"
+           data-ciudad=""
+           data-estado="Hallado">
+        <div class="foto-wrap">${fotoHTML}</div>
+        <div class="tarjeta-body">
+          <h2>${nombre}</h2>
+          ${donde    ? `<div class="detalle"><span>📍</span><span>${donde}</span></div>` : ''}
+          ${contacto ? `<div class="detalle"><span>📞</span><span>${contacto}</span></div>` : ''}
+          ${obs      ? `<div class="detalle"><span>📝</span><span>${obs}</span></div>` : ''}
+          <span class="badge badge-hallado">Hallado</span>
         </div>
       </div>`;
   }
@@ -189,23 +240,45 @@
     document.getElementById('sin-resultados').style.display = visibles === 0 ? 'block' : 'none';
   }
 
+  function cambiarTab(tab) {
+    tabActual = tab;
+    document.getElementById('tab-desaparecidos').classList.toggle('activo', tab === 'desaparecidos');
+    document.getElementById('tab-hallados').classList.toggle('activo', tab === 'hallados');
+    document.getElementById('filtroEstado').style.display = tab === 'desaparecidos' ? '' : 'none';
+    document.getElementById('filtroCiudad').style.display = tab === 'desaparecidos' ? '' : 'none';
+    cargar();
+  }
+
   async function cargar() {
+    document.getElementById('cargando').style.display = 'block';
+    document.getElementById('grid').innerHTML = '';
+    document.getElementById('sin-resultados').style.display = 'none';
+    document.getElementById('error-msg').style.display = 'none';
+
     try {
-      const resp = await fetch(CSV_URL + '&t=' + Date.now());
+      const url = tabActual === 'desaparecidos' ? CSV_DESAPARECIDOS : CSV_HALLADOS;
+      const resp = await fetch(url + '&t=' + Date.now());
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const text = await resp.text();
       if (!text || text.trim().length < 10) throw new Error('CSV vacío');
 
-      todosLosCasos = parseCSV(text).filter(c => c[COL_ID] && c[COL_ID].toString().trim() !== '');
-      const activos = todosLosCasos.filter(c => c[COL_ESTADO] !== 'Cerrado verificado');
-
+      const casos = parseCSV(text);
       document.getElementById('cargando').style.display = 'none';
-      document.getElementById('error-msg').style.display = 'none';
 
-      poblarFiltroCiudad(activos);
-      const grid = document.getElementById('grid');
-      grid.innerHTML = activos.length > 0 ? activos.map(renderTarjeta).join('') : '';
-      document.getElementById('contador').textContent = activos.length + ' caso(s) activo(s)';
+      if (tabActual === 'desaparecidos') {
+        const activos = casos.filter(c => c[COL_ID] && c[COL_ID].toString().trim() !== '' && c[COL_ESTADO] !== 'Cerrado verificado');
+        poblarFiltroCiudad(activos);
+        document.getElementById('grid').innerHTML = activos.length > 0 ? activos.map(renderDesaparecido).join('') : '';
+        document.getElementById('contador').textContent = activos.length + ' caso(s) activo(s)';
+      } else {
+        const hallados = casos.filter(c => c[H_NOMBRE] && c[H_NOMBRE].toString().trim() !== '');
+        document.getElementById('grid').innerHTML = hallados.length > 0 ? hallados.map(renderHallado).join('') : '';
+        document.getElementById('contador').textContent = hallados.length + ' persona(s) hallada(s)';
+      }
+
+      if (document.getElementById('grid').innerHTML === '') {
+        document.getElementById('sin-resultados').style.display = 'block';
+      }
 
       if (!eventosRegistrados) {
         document.getElementById('buscarNombre').addEventListener('input', filtrar);
