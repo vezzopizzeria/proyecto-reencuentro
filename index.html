@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
@@ -11,15 +11,11 @@
     header h1 { font-size: 2rem; color: #fff; letter-spacing: 2px; text-transform: uppercase; }
     header p { color: #a0aec0; margin-top: 0.5rem; font-size: 0.95rem; }
     .alerta { background: #e94560; color: #fff; text-align: center; padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 600; letter-spacing: 1px; }
-    .controles { max-width: 960px; margin: 1.5rem auto; padding: 0 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+    .controles { max-width: 960px; margin: 1.5rem auto; padding: 0 1rem; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.8rem; }
     .controles input, .controles select { padding: 0.7rem 1rem; border-radius: 8px; border: 1px solid #2d3748; background: #1a202c; color: #e8e8e8; font-size: 0.95rem; width: 100%; }
     .controles input::placeholder { color: #718096; }
     .busqueda-nota { max-width: 960px; margin: -0.5rem auto 0.5rem; padding: 0 1rem; font-size: 0.75rem; color: #718096; }
     #contador { max-width: 960px; margin: 0 auto 1rem; padding: 0 1rem; color: #718096; font-size: 0.85rem; }
-    .tabs { max-width: 960px; margin: 0 auto 1.5rem; padding: 0 1rem; display: flex; gap: 0.6rem; }
-    .tab { padding: 0.5rem 1.4rem; border-radius: 6px; border: 1px solid #2d3748; background: #1a202c; color: #a0aec0; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-    .tab.activo { background: #e94560; border-color: #e94560; color: #fff; }
-    .tab-hallados.activo { background: #d69e2e; border-color: #d69e2e; color: #1a202c; }
     .grid { max-width: 960px; margin: 0 auto 3rem; padding: 0 1rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.2rem; }
     .tarjeta { background: #1a202c; border-radius: 12px; overflow: hidden; border: 1px solid #2d3748; transition: transform 0.2s, border-color 0.2s; }
     .tarjeta:hover { transform: translateY(-4px); border-color: #e94560; }
@@ -62,23 +58,14 @@
 
 <div class="controles">
   <input type="text" id="buscarNombre" placeholder="🔎 Buscar por nombre...">
-  <input type="text" id="buscarCedula" placeholder="🪪 Buscar por cédula...">
+  <input type="text" id="buscarCedula" placeholder="🪪 Buscar por documento...">
   <select id="filtroEstado">
-    <option value="">Todos los estados</option>
-    <option value="Reportado">Reportado</option>
-    <option value="En verificación">En verificación</option>
-    <option value="Posible localizado">Posible localizado</option>
-  </select>
-  <select id="filtroCiudad">
-    <option value="">Todas las ciudades</option>
+    <option value="">Todos</option>
+    <option value="desaparecido">Desaparecido</option>
+    <option value="hallado">Hallado</option>
   </select>
 </div>
-<p class="busqueda-nota">* La búsqueda por cédula es privada — el número no se muestra en la tarjeta pública.</p>
-
-<div class="tabs">
-  <button class="tab activo" id="tab-desaparecidos" onclick="cambiarTab('desaparecidos')">🔴 Desaparecidos</button>
-  <button class="tab tab-hallados" id="tab-hallados" onclick="cambiarTab('hallados')">🟡 Hallados</button>
-</div>
+<p class="busqueda-nota">* La búsqueda por documento es privada — el número no se muestra en la tarjeta pública.</p>
 
 <div id="contador"></div>
 <div id="cargando">⏳ Cargando casos...</div>
@@ -105,16 +92,16 @@
   const COL_ESTADO    = 15;
   const COL_ID        = 16;
 
-  // Columnas hallados (índice desde 0)
-  const H_NOMBRE    = 1;
-  const H_CEDULA    = 2;
-  const H_DONDE     = 3;
-  const H_CONTACTO  = 4;
-  const H_OBS       = 5;
-  const H_FOTO      = 6;
+  // Columnas hallados
+  const H_NOMBRE   = 1;
+  const H_CEDULA   = 2;
+  const H_DONDE    = 3;
+  const H_CONTACTO = 4;
+  const H_OBS      = 5;
+  const H_FOTO     = 6;
 
-  let tabActual = 'desaparecidos';
-  let eventosRegistrados = false;
+  let todosDesaparecidos = [];
+  let todosHallados      = [];
 
   function driveUrl(url) {
     if (!url) return '';
@@ -166,8 +153,7 @@
       <div class="tarjeta"
            data-nombre="${nombre.toLowerCase()}"
            data-cedula="${cedula.toString().toLowerCase()}"
-           data-ciudad="${ciudad.toLowerCase()}"
-           data-estado="${estado}">
+           data-tipo="desaparecido">
         <div class="foto-wrap">${fotoHTML}</div>
         <div class="tarjeta-body">
           <h2>${nombre}</h2>
@@ -182,12 +168,12 @@
   }
 
   function renderHallado(caso) {
-    const nombre    = caso[H_NOMBRE]   || 'Sin nombre';
-    const donde     = caso[H_DONDE]    || '';
-    const contacto  = caso[H_CONTACTO] || '';
-    const obs       = caso[H_OBS]      || '';
-    const foto      = driveUrl(caso[H_FOTO] || '');
-    const cedula    = caso[H_CEDULA]   || '';
+    const nombre   = caso[H_NOMBRE]   || 'Sin nombre';
+    const donde    = caso[H_DONDE]    || '';
+    const contacto = caso[H_CONTACTO] || '';
+    const obs      = caso[H_OBS]      || '';
+    const foto     = driveUrl(caso[H_FOTO] || '');
+    const cedula   = caso[H_CEDULA]   || '';
 
     const fotoHTML = foto
       ? `<img src="${foto}" alt="Foto de ${nombre}" onerror="this.parentElement.innerHTML='<span class=\\"sin-foto\\">👤</span>'">`
@@ -197,8 +183,7 @@
       <div class="tarjeta hallado"
            data-nombre="${nombre.toLowerCase()}"
            data-cedula="${cedula.toString().toLowerCase()}"
-           data-ciudad=""
-           data-estado="Hallado">
+           data-tipo="hallado">
         <div class="foto-wrap">${fotoHTML}</div>
         <div class="tarjeta-body">
           <h2>${nombre}</h2>
@@ -210,43 +195,24 @@
       </div>`;
   }
 
-  function poblarFiltroCiudad(casos) {
-    const sel = document.getElementById('filtroCiudad');
-    while (sel.options.length > 1) sel.remove(1);
-    const ciudades = [...new Set(casos.map(c => c[COL_CIUDAD]).filter(Boolean))].sort();
-    ciudades.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.toLowerCase(); opt.textContent = c;
-      sel.appendChild(opt);
-    });
-  }
-
   function filtrar() {
     const txtNombre = document.getElementById('buscarNombre').value.toLowerCase().trim();
     const txtCedula = document.getElementById('buscarCedula').value.toLowerCase().trim();
-    const estado    = document.getElementById('filtroEstado').value;
-    const ciudad    = document.getElementById('filtroCiudad').value;
+    const tipo      = document.getElementById('filtroEstado').value;
     const tarjetas  = document.querySelectorAll('.tarjeta');
     let visibles = 0;
+
     tarjetas.forEach(t => {
-      const ok = (!txtNombre || t.dataset.nombre.includes(txtNombre))
-              && (!txtCedula || t.dataset.cedula.includes(txtCedula))
-              && (!estado    || t.dataset.estado === estado)
-              && (!ciudad    || t.dataset.ciudad === ciudad);
+      const okNombre = !txtNombre || t.dataset.nombre.includes(txtNombre);
+      const okCedula = !txtCedula || t.dataset.cedula.includes(txtCedula);
+      const okTipo   = !tipo      || t.dataset.tipo === tipo;
+      const ok = okNombre && okCedula && okTipo;
       t.style.display = ok ? '' : 'none';
       if (ok) visibles++;
     });
-    document.getElementById('contador').textContent = visibles + ' caso(s) encontrado(s)';
-    document.getElementById('sin-resultados').style.display = visibles === 0 ? 'block' : 'none';
-  }
 
-  function cambiarTab(tab) {
-    tabActual = tab;
-    document.getElementById('tab-desaparecidos').classList.toggle('activo', tab === 'desaparecidos');
-    document.getElementById('tab-hallados').classList.toggle('activo', tab === 'hallados');
-    document.getElementById('filtroEstado').style.display = tab === 'desaparecidos' ? '' : 'none';
-    document.getElementById('filtroCiudad').style.display = tab === 'desaparecidos' ? '' : 'none';
-    cargar();
+    document.getElementById('contador').textContent = visibles + ' resultado(s) encontrado(s)';
+    document.getElementById('sin-resultados').style.display = visibles === 0 ? 'block' : 'none';
   }
 
   async function cargar() {
@@ -256,37 +222,34 @@
     document.getElementById('error-msg').style.display = 'none';
 
     try {
-      const url = tabActual === 'desaparecidos' ? CSV_DESAPARECIDOS : CSV_HALLADOS;
-      const resp = await fetch(url + '&t=' + Date.now());
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      const text = await resp.text();
-      if (!text || text.trim().length < 10) throw new Error('CSV vacío');
+      const [respD, respH] = await Promise.all([
+        fetch(CSV_DESAPARECIDOS + '&t=' + Date.now()),
+        fetch(CSV_HALLADOS      + '&t=' + Date.now())
+      ]);
 
-      const casos = parseCSV(text);
+      const textD = await respD.text();
+      const textH = await respH.text();
+
+      todosDesaparecidos = parseCSV(textD).filter(c => c[COL_ID] && c[COL_ID].toString().trim() !== '' && c[COL_ESTADO] !== 'Cerrado verificado');
+      todosHallados      = parseCSV(textH).filter(c => c[H_NOMBRE] && c[H_NOMBRE].toString().trim() !== '');
+
+      const htmlD = todosDesaparecidos.map(renderDesaparecido).join('');
+      const htmlH = todosHallados.map(renderHallado).join('');
+
+      document.getElementById('grid').innerHTML = htmlD + htmlH;
       document.getElementById('cargando').style.display = 'none';
 
-      if (tabActual === 'desaparecidos') {
-        const activos = casos.filter(c => c[COL_ID] && c[COL_ID].toString().trim() !== '' && c[COL_ESTADO] !== 'Cerrado verificado');
-        poblarFiltroCiudad(activos);
-        document.getElementById('grid').innerHTML = activos.length > 0 ? activos.map(renderDesaparecido).join('') : '';
-        document.getElementById('contador').textContent = activos.length + ' caso(s) activo(s)';
-      } else {
-        const hallados = casos.filter(c => c[H_NOMBRE] && c[H_NOMBRE].toString().trim() !== '');
-        document.getElementById('grid').innerHTML = hallados.length > 0 ? hallados.map(renderHallado).join('') : '';
-        document.getElementById('contador').textContent = hallados.length + ' persona(s) hallada(s)';
-      }
+      const total = todosDesaparecidos.length + todosHallados.length;
+      document.getElementById('contador').textContent = total + ' caso(s) en el sistema';
 
-      if (document.getElementById('grid').innerHTML === '') {
+      if (document.getElementById('grid').innerHTML.trim() === '') {
         document.getElementById('sin-resultados').style.display = 'block';
       }
 
-      if (!eventosRegistrados) {
-        document.getElementById('buscarNombre').addEventListener('input', filtrar);
-        document.getElementById('buscarCedula').addEventListener('input', filtrar);
-        document.getElementById('filtroEstado').addEventListener('change', filtrar);
-        document.getElementById('filtroCiudad').addEventListener('change', filtrar);
-        eventosRegistrados = true;
-      }
+      document.getElementById('buscarNombre').addEventListener('input', filtrar);
+      document.getElementById('buscarCedula').addEventListener('input', filtrar);
+      document.getElementById('filtroEstado').addEventListener('change', filtrar);
+
     } catch (err) {
       console.error('Error:', err);
       document.getElementById('cargando').style.display = 'none';
